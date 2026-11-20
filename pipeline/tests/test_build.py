@@ -65,3 +65,26 @@ def test_match_verified_needs_whole_name_and_sector():
     assert build_city.match_verified({"match": ["M3M Heights"], "sector": "65"}, ps)["mb_id"] == 2
     assert build_city.match_verified({"match": ["M3M St Andrews"], "sector": "65"}, ps)["mb_id"] == 4
     assert build_city.match_verified({"match": ["M3M Heights"], "sector": "65"}, ps, taken={2}) is None
+
+
+def test_in_city_uses_the_city_bbox_not_gurgaon():
+    mumbai = {"bbox": [18.89, 72.77, 19.30, 73.05]}
+    gurgaon = {"bbox": [28.33, 76.88, 28.55, 77.16]}
+    powai = {"lat": 19.1176, "lng": 72.9060}
+    assert build_city.in_city(powai, mumbai)
+    assert not build_city.in_city(powai, gurgaon)
+    assert build_city.in_city({"lat": 28.4595, "lng": 77.0266}, gurgaon)
+    assert build_city.in_city({"lat": 19.40, "lng": 72.80}, mumbai)  # just past the bbox: kept (padding)
+    assert not build_city.in_city({"lat": 0, "lng": 0}, mumbai)  # bad geocode
+    assert not build_city.in_city({"lat": None, "lng": 72.9}, mumbai)
+
+
+def test_events_name_the_city_not_gurgaon():
+    s = {"id": "s1", "url": "u", "locality": None, "lat": 19.1, "lng": 72.9, "amenities": [], "unit_types": []}
+    assert build_city.events_for(s, "Mumbai")[0]["finding"].startswith("Mumbai")
+
+
+def test_in_city_prefers_an_explicit_keep_bbox():
+    cfg = {"bbox": [28.33, 76.88, 28.55, 77.16], "keep_bbox": [28.2, 76.7, 28.7, 77.3]}
+    assert not build_city.in_city({"lat": 28.19, "lng": 77.10}, cfg)  # inside padded bbox, outside keep_bbox
+    assert build_city.in_city({"lat": 28.21, "lng": 76.71}, cfg)
